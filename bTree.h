@@ -33,7 +33,7 @@ public:
   bTreeNode(int M, bool is_leaf);
 
   // Walks the subtree
-  void traverse(ostringstream*);
+  void traverse(stringstream*);
   bool find(string key, string* value);
   entry** entries;
   int number_of_keys;
