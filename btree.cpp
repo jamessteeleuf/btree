@@ -14,14 +14,21 @@ void bTree::set_boundaries(int M){
 	this->upper_bound = M;
 }
 
-void bTree::traverse(){
-	if(root != NULL){
-		root->traverse();
+string bTree::toStr(){
+	ostringstream* os;
+	if(this->root != NULL){
+		cout << "made it to root traverse" << endl;
+		this->root->traverse(os);
 	}
+	return os->str();
 }
 
-bool bTree::find(string key){
-	return (root == NULL) ? false : root->find(key);
+bool bTree::find(string key, string *value){
+	if(this->root == NULL){
+		return false;
+	}
+	
+	return this->root->find(key, value);
 }
 
 bTreeNode::bTreeNode(int M, bool is_leaf){
@@ -32,11 +39,20 @@ bTreeNode::bTreeNode(int M, bool is_leaf){
 	this->is_leaf = is_leaf;
 
 	// Create the data structures to store our keys and children
-	entries = new entry[this->upper_bound-1];
-	children = new bTreeNode*[this->upper_bound];
+	this->entries = new entry*[this->upper_bound-1];
+	
+	for(int i = 0; i < this->upper_bound - 1; i++){
+		this->entries[i] = NULL;
+	}
+	
+	this->children = new bTreeNode*[this->upper_bound];
+	
+	for(int i = 0; i < this->upper_bound; i++){
+		this->children[i] = NULL;
+	}
 
 	// We have no keys, so set this to 0
-	number_of_keys = 0;
+	this->number_of_keys = 0;
 }
 
 void bTreeNode::set_boundaries(int M){
@@ -45,51 +61,69 @@ void bTreeNode::set_boundaries(int M){
 	this->upper_bound = M;
 }
 
-void bTreeNode::traverse(){
-	int i;
+void bTreeNode::traverse(ostringstream* os){
+	cout << "made it into node traverse" << endl;
+	int i = 0;
 
+	cout << "made it right before # o  keys " <<endl;
+	
+	cout << this->number_of_keys << endl;
+	cout << "made it right after # o  keys " <<endl;
 	// Walk along each node
 	for(i = 0; i < this->number_of_keys; i++){
-		if(!this->is_leaf){
-			children[i]->traverse();
+		
+		cout << "made it to not is leaf 1" << endl;
+		if(!this->is_leaf && this->children[i] != NULL){
+			this->children[i]->traverse(os);
 		}
+		cout << "made it past not is leaf 1" << endl;
+		
+		cout << "made it to entry print" << endl;
+		if(this->entries[i] != NULL){
+			(*os) << this->entries[i]->key << "\n";
+		}
+		cout << "made it past entry print" << endl;
 	}
 
 	if(!this->is_leaf){
-		children[i]->traverse();
+		if(this->children[i] != NULL){
+			this->children[i]->traverse(os);
+		}
 	}
 }
 
 
-bTreeNode* bTreeNode::search(string key){
+bool bTreeNode::find(string key, string* value){
 	int partition_index = 0;
 
 	// Find the first key >= the search key
-	while(partition_index < this->number_of_keys && key > this->entries[partition_index]){
+	while(partition_index < this->number_of_keys && key > this->entries[partition_index]->key){
 		partition_index++;
 	}
 
 	// Check if our search key is the same as the partition key
-	if(key == this->entries[partition_index].key){
-		return this;
+	if(key == this->entries[partition_index]->key){
+		value = &(this->entries[partition_index]->value);
+		return true;
 	}
 
 	// Key isn't found and this is a leaf
 	if(this->is_leaf){
-		return NULL;
+		return false;
 	}
 
 	// Check our partition node for the key
-	return children[i]->search(key);
+	return children[partition_index]->find(key, value);
 }
 
 void bTree::insert(string key, string value){
 	// When the tree is empty, we can just insert the new key at the base
 	if(this->root == NULL){
 		this->root = new bTreeNode(this->upper_bound, true);
-		root->entries[0].key = key;
-		root->entries[0].value = value;
-		root->number_of_keys = 0;
+		this->root->entries[0] = new entry();
+		this->root->entries[0]->key = key;
+		this->root->entries[0]->value = value;
+		this->root->number_of_keys = 0;
 	}else{
 		if(root->number_of_keys == this->upper_bound - 1){
 			// If the tree is full, then make the old root the child of the new root, split it, then put the key where it should go
@@ -100,7 +134,7 @@ void bTree::insert(string key, string value){
 			s->split_child(0, root);
 
 			int i = 0;
-			if(s->entries[0].key < key){
+			if(s->entries[0]->key < key){
 				i++;
 			}
 
@@ -114,20 +148,22 @@ void bTree::insert(string key, string value){
 }
 
 void bTreeNode::insert_non_full(string key, string value){
-	int i = n - 1; // Deal with our rightmost element
+	int i = this->number_of_keys - 1; // Deal with our rightmost element
 
 	if(this->is_leaf){
 		// Move all greater keys up and find where to insert the key
-		while(i >= 0 && this->entries[i].key > key){
-			this->entries[i + 1].key = this->entries[i + 1].key;
+		while(i >= 0 && this->entries[i]->key > key){
+			this->entries[i + 1] = this->entries[i];
 			i--;
 		}
 
 		// Insert the keys
-		this->entries[i + 1].key = key;
+		this->entries[i + 1] = new entry();
+		this->entries[i + 1]->key = key;
+		this->entries[i + 1]->value = value;
 		this->number_of_keys++;
 	}else{
-		while(i >= 0 && this->entries[i].key > key){
+		while(i >= 0 && this->entries[i]->key > key){
 			i--;
 		}
 
@@ -136,12 +172,12 @@ void bTreeNode::insert_non_full(string key, string value){
 			this->split_child(i + 1, this->children[i + 1]);
 
 			// Determine where to put the new key
-			if(this->entries[i+1].key < key){
+			if(this->entries[i+1]->key < key){
 				i++;
 			}
 		}
 
-		this->children[i+1]->insert_non_full(key);
+		this->children[i+1]->insert_non_full(key, value);
 	}
 }
 
@@ -162,7 +198,7 @@ void bTreeNode::split_child(int i, bTreeNode* y){
 	y->number_of_keys = this->lower_bound - 1;
 
 	// Move everything up
-	for(int j = n; j >= i+1; j--){
+	for(int j = this->number_of_keys; j >= i+1; j--){
 		this->children[j + 1] = this->children[j];
 	}
 
@@ -170,26 +206,26 @@ void bTreeNode::split_child(int i, bTreeNode* y){
 	this->children[i + 1] = z;
 
 	// Move the entries up
-	for(int j = n-1; j >= i; j--){
+	for(int j = this->number_of_keys-1; j >= i; j--){
 		this->entries[j + 1] = this->entries[j];
 	}
 
-	this->entries[i] = y->entries[t - 1];
+	this->entries[i] = y->entries[this->lower_bound - 1];
 	this->number_of_keys++;
 }
 
 int bTreeNode::find_key(string key){
 	int index = 0;
-	while(index < this->number_of_keys && this->entries[index].key < key){
+	while(index < this->number_of_keys && this->entries[index]->key < key){
 		++index;
 	}
 	return index;
 }
 
-void bTreeNode::remove(string key){
+bool bTreeNode::remove(string key){
 	int index = this->find_key(key);
 
-	if(index < this->number_of_keys && this->entries[index].key == key){
+	if(index < this->number_of_keys && this->entries[index]->key == key){
 		if(this->is_leaf){
 			this->remove_from_leaf(index);
 		}else{
@@ -200,7 +236,7 @@ void bTreeNode::remove(string key){
 			return false;
 		}
 
-		bool flag = index == n;
+		bool flag = index == this->number_of_keys;
 
 		if(this->children[index]->number_of_keys < this->lower_bound){
 			this->fill(index);
@@ -224,19 +260,19 @@ bool bTreeNode::remove_from_leaf(int index){
 }
 
 bool bTreeNode::remove_from_non_leaf(int index){
-	entry e = this->entries[index];
+	entry* e = this->entries[index];
 
 	if(children[index]->number_of_keys >= this->lower_bound){
 		entry* predecessor = this->get_predecessor(index);
 		this->entries[index] = predecessor;
-		this->children[index]->remove(predecessor);
+		this->children[index]->remove(predecessor->key);
 	}else if(this->children[index + 1]->number_of_keys >= this->upper_bound){
 		entry* successor = this->get_successor(index);
 		this->entries[index] = successor;
-		this->children[index+1]->remove(successor);
+		this->children[index+1]->remove(successor->key);
 	}else{
 		this->merge(index);
-		this->children[index]->remove(e);
+		this->children[index]->remove(e->key);
 	}
 	return true;
 }
@@ -259,10 +295,10 @@ entry* bTreeNode::get_successor(int index){
 }
 
 void bTreeNode::fill(int index){
-	if(index != 0 && this->children[index - 1]->number_of_keys >= t){
+	if(index != 0 && this->children[index - 1]->number_of_keys >= this->lower_bound){
 		this->borrow_from_previous(index);
-	}else if(index != n && this->children[index + 1]->number_of_keys >= t){
-		this->borrow_from_next(index)
+	}else if(index != this->number_of_keys && this->children[index + 1]->number_of_keys >= this->lower_bound){
+		this->borrow_from_next(index);
 	}else{
 		if(index != this->number_of_keys){
 			this->merge(index);
@@ -310,11 +346,11 @@ void bTreeNode::borrow_from_next(int index){
 
 	this->entries[index] = sibling->entries[0];
 
-	for(int i = 1; i < sibling->number_of_keysn; ++i){
+	for(int i = 1; i < sibling->number_of_keys; ++i){
 		sibling->entries[i-1] = sibling->entries[i];
 	}
 
-	if(!sibling->leaf){
+	if(!sibling->is_leaf){
 		for(int i = 1; i <= sibling->number_of_keys; ++i){
 			sibling->children[index-1] = sibling->children[i];
 		}
@@ -354,7 +390,7 @@ void bTreeNode::merge(int index){
 	delete(sibling);
 }
 
-bool delete_key(string key){
+bool bTree::delete_key(string key){
 	if(!this->root){
 		return false;
 	}
